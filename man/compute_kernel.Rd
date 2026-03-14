@@ -2,28 +2,38 @@
 % Please edit documentation in R/GEMSS.R
 \name{compute_kernel}
 \alias{compute_kernel}
-\title{Correlation function of selected type, supporting both isotropic and product forms}
+\title{Compute the Correlation Matrix for Specified Kernels}
 \usage{
 compute_kernel(x1, x2, theta, type)
 }
 \arguments{
-\item{theta}{p by 1 vector of lengthscale parameters}
+\item{theta}{a \code{p x 1} vector of lengthscale parameters corresponding to each dimension.}
 
-\item{type}{one of "\code{Gaussian}", "\code{Matern5_2}", "\code{Matern3_2}"}
+\item{type}{a character string specifying the kernel type: "\code{Gaussian}",
+"\code{Matern5_2}", or "\code{Matern3_2}".}
 
-\item{X1}{n by p matrix of input locations, one observation per row.}
+\item{X1}{an \code{n x p} matrix of input locations, where each row represents an observation.}
 
-\item{X2}{matrix of design locations if correlation is calculated between \code{X1} and \code{X2} (otherwise calculated between \code{X1} and itself)}
+\item{X2}{an \code{m x p} matrix of design locations. If \code{NULL}, the correlation
+is calculated between \code{X1} and itself.}
+}
+\value{
+A numeric matrix of dimensions \code{nrow(X1) x nrow(X2)}.
 }
 \description{
-Correlation function of selected type, supporting both isotropic and product forms
+Calculates the correlation matrix between two sets of locations using
+stationary kernels. This function supports Gaussian, Matern 5/2, and
+Matern 3/2 correlation structures in a multivariate product form.
 }
 \details{
-Definition of univariate correlation function and hyperparameters:
+For multivariate inputs, the correlation function is defined as the product
+of univariate kernels across all \eqn{p} dimensions:
+\deqn{C(\mathbf{x}, \mathbf{y}, \boldsymbol{\theta}) = \prod_{k=1}^{p} c_k(|x_k - y_k|, \theta_k)}
+
+The available univariate correlation functions \eqn{c(d)} (where \eqn{d = |x - y|}) are:
 \itemize{
-\item "\code{Gaussian}": \eqn{c(x, y) = exp(-(x-y)^2/theta)}
-\item "\code{Matern5_2}": \eqn{c(x, y) = (1+sqrt(5)/theta * abs(x-y) + 5/(3*theta^2)(x-y)^2) * exp(-sqrt(5)*abs(x-y)/theta)}
-\item "\code{Matern3_2}": \eqn{c(x, y) = (1+sqrt(3)/theta * abs(x-y)) * exp(-sqrt(3)*abs(x-y)/theta)}
+\item "\code{Gaussian}": \deqn{c(d, \theta) = \exp\left(-\frac{d^2}{\theta}\right)}
+\item "\code{Matern5_2}": \deqn{c(d, \theta) = \left(1 + \frac{\sqrt{5}d}{\theta} + \frac{5d^2}{3\theta^2}\right) \exp\left(-\frac{\sqrt{5}d}{\theta}\right)}
+\item "\code{Matern3_2}": \deqn{c(d, \theta) = \left(1 + \frac{\sqrt{3}d}{\theta}\right) \exp\left(-\frac{\sqrt{3}d}{\theta}\right)}
 }
-Multivariate correlations are product of univariate ones.
 }

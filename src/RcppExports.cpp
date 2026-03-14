@@ -41,24 +41,24 @@ BEGIN_RCPP
 END_RCPP
 }
 // GEMSS_cpp_update_sig
-Rcpp::List GEMSS_cpp_update_sig(arma::mat X, arma::vec Y, arma::mat X_val, arma::vec Y_val, arma::uvec initial_idx, arma::uword ns, double c1, arma::uword n_srs, arma::uword n_top, arma::vec theta, double nugget, double beta0, std::string Cov_fun, bool print_result);
+Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const arma::mat& X_val, const arma::vec& Y_val, const arma::uvec& initial_idx, arma::uword ns, double c1, arma::uword n_srs, arma::uword n_top, const arma::vec& theta, double nugget, double beta0, const std::string& Cov_fun, bool print_result);
 RcppExport SEXP _GEMSS_GEMSS_cpp_update_sig(SEXP XSEXP, SEXP YSEXP, SEXP X_valSEXP, SEXP Y_valSEXP, SEXP initial_idxSEXP, SEXP nsSEXP, SEXP c1SEXP, SEXP n_srsSEXP, SEXP n_topSEXP, SEXP thetaSEXP, SEXP nuggetSEXP, SEXP beta0SEXP, SEXP Cov_funSEXP, SEXP print_resultSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type X_val(X_valSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type Y_val(Y_valSEXP);
-    Rcpp::traits::input_parameter< arma::uvec >::type initial_idx(initial_idxSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X_val(X_valSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Y_val(Y_valSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type initial_idx(initial_idxSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type ns(nsSEXP);
     Rcpp::traits::input_parameter< double >::type c1(c1SEXP);
     Rcpp::traits::input_parameter< arma::uword >::type n_srs(n_srsSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type n_top(n_topSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< double >::type nugget(nuggetSEXP);
     Rcpp::traits::input_parameter< double >::type beta0(beta0SEXP);
-    Rcpp::traits::input_parameter< std::string >::type Cov_fun(Cov_funSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type Cov_fun(Cov_funSEXP);
     Rcpp::traits::input_parameter< bool >::type print_result(print_resultSEXP);
     rcpp_result_gen = Rcpp::wrap(GEMSS_cpp_update_sig(X, Y, X_val, Y_val, initial_idx, ns, c1, n_srs, n_top, theta, nugget, beta0, Cov_fun, print_result));
     return rcpp_result_gen;

@@ -108,163 +108,209 @@ Rcpp::List gp_predict_cpp(arma::mat X_new, arma::mat X, arma::vec Y,
   );
 }
 
-arma::mat inverse_update_cpp(arma::mat Rs_inv, arma::vec rs_add, double g) {
-  arma::uword d = Rs_inv.n_cols;
+arma::mat inverse_update_cpp(arma::mat U, const arma::vec& rs_add, double g) {
+  arma::uword d = U.n_cols;
+  double tol = 1e-12;
 
-  // A = Rs_inv * rs_add
-  arma::vec A = Rs_inv * rs_add;
+  // Solve t(U) * v = rs_add
+  arma::vec v = arma::solve(arma::trimatu(U).t(), rs_add, arma::solve_opts::fast);
 
-  // Q = (1 + g) - rs_add' * A
-  double Q = (1.0 + g) - as_scalar(rs_add.t() * A);
+  // Schur complement (alpha^2)
+  double alpha2 = 1.0 + g - arma::dot(v, v);
 
-  arma::mat Rs_inv_next(d + 1, d + 1);
-  arma::vec temp = A / Q;
+  if (alpha2 < -tol) {
+    Rcpp::stop("Cholesky update failed: Matrix is not numerically SPD.");
+  }
 
-  // Fill the blocks
-  Rs_inv_next.submat(0, 0, d - 1, d - 1) = Rs_inv + (temp * A.t());
-  Rs_inv_next.submat(0, d, d - 1, d)     = -temp;
-  Rs_inv_next.submat(d, 0, d, d - 1)     = -temp.t();
-  Rs_inv_next.at(d, d)                   = 1.0 / Q;
+  double alpha = std::sqrt(std::max(alpha2, 1e-14)); // Jitter for stability
 
-  return Rs_inv_next;
+  // Build the new matrix explicitly
+  arma::mat U_next(d + 1, d + 1, arma::fill::zeros);
+  U_next.submat(0, 0, d - 1, d - 1) = U;
+  U_next.submat(0, d, d - 1, d) = v;
+  U_next(d, d) = alpha;
+
+  return U_next;
 }
 
 
 // [[Rcpp::export]]
-Rcpp::List GEMSS_cpp_update_sig(arma::mat X, arma::vec Y, arma::mat X_val, arma::vec Y_val, arma::uvec initial_idx, arma::uword ns, double c1, arma::uword n_srs, arma::uword n_top,
-                     arma::vec theta, double nugget, double beta0, std::string Cov_fun, bool print_result) {
-
+Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const arma::mat& X_val, const arma::vec& Y_val, const arma::uvec& initial_idx,
+                                arma::uword ns, double c1, arma::uword n_srs, arma::uword n_top, const arma::vec& theta, double nugget, double beta0,
+                                const std::string& Cov_fun, bool print_result) {
   arma::uword N = X.n_rows;
+  arma::uword p = X.n_cols;
+
   arma::uvec index(ns);
-  arma::vec r_sq_history(ns);
-  double sig2;
+  arma::vec r_sq_history(ns, arma::fill::zeros);
 
   arma::uword current_size = initial_idx.n_elem;
-  index.head(current_size) = initial_idx - 1; // Fill the start
+  index.head(current_size) = initial_idx - 1;
 
-  // PRE-ALLOCATE instead of join_cols
-  arma::mat X_sub_all(ns, X.n_cols);
-  arma::vec Y_sub_all(ns);
+  arma::mat X_sub_all(ns, p);
+  arma::vec Y_sub_c(ns);
+
   X_sub_all.rows(0, current_size - 1) = X.rows(index.head(current_size));
-  Y_sub_all.head(current_size) = Y.rows(index.head(current_size));
+  Y_sub_c.head(current_size)   = Y.elem(index.head(current_size)) - beta0;
 
-  // --- THE FAST MASKING START ---
-  std::vector<bool> is_used(N, false);
-
-  // Only mark the ACTUAL initial points
-  for(arma::uword i = 0; i < current_size; ++i) {
-    arma::uword idx = index(i);
-    if(idx < N) is_used[idx] = true;
+  // persistent active mask
+  std::vector<unsigned char> is_active(N, 0);
+  for (arma::uword i = 0; i < current_size; ++i) {
+    is_active[index(i)] = 1;
   }
 
-  // Build the initial screening set efficiently
-  std::vector<uword> initial_scr_vec;
-  initial_scr_vec.reserve(N - current_size);
-  for(arma::uword i = 0; i < N; ++i) {
-    if(!is_used[i]) {
-      initial_scr_vec.push_back(i);
-    }
+  std::vector<arma::uword> scr_vec;
+  scr_vec.reserve(N - current_size);
+  for (arma::uword i = 0; i < N; ++i) {
+    if (!is_active[i]) scr_vec.push_back(i);
   }
-  arma::uvec scr_ind = conv_to<uvec>::from(initial_scr_vec);
+  arma::uvec scr_ind = arma::conv_to<arma::uvec>::from(scr_vec);
 
-
-  // Initial full inverse (only done once)
-  arma::mat X_sub = X_sub_all.rows(0, current_size - 1);
-  arma::vec Y_sub_c = Y_sub_all.head(current_size) - beta0;
-  arma::mat K_ff = compute_kernel(X_sub, X_sub, theta, Cov_fun);
+  // initial model
+  arma::mat K_ff = compute_kernel(
+    X_sub_all.rows(0, current_size - 1),
+    X_sub_all.rows(0, current_size - 1),
+    theta, Cov_fun
+  );
   K_ff.diag() += nugget;
-  arma::mat K_inv = inv(K_ff);
+  arma::mat U = arma::chol(K_ff);
 
-  // alpha
-  arma::vec alpha = K_inv * Y_sub_c;
-  sig2 = arma::as_scalar(Y_sub_c.t() * alpha) / (double)(current_size);
+  arma::vec w, alpha;
+  w = arma::solve(arma::trimatu(U).t(), Y_sub_c.head(current_size));
+  alpha = arma::solve(arma::trimatu(U), w);
+  double sig2 = arma::as_scalar(Y_sub_c.head(current_size).t() * alpha) / double(current_size);
 
-  arma::mat K_val_f(X_val.n_rows, ns);
-  K_val_f.cols(0, current_size - 1) = compute_kernel(X_val, X_sub, theta, Cov_fun);
-  arma::vec mu_val = (K_val_f.cols(0, current_size-1) * alpha) + beta0;
-  double mst = mean(square(Y_val - mean(Y)));
-  // double mst = mean(square(Y_val - mu_val));
+  arma::mat K_val_f(X_val.n_rows, ns, arma::fill::none);
+  K_val_f.cols(0, current_size - 1) =
+    compute_kernel(X_val, X_sub_all.rows(0, current_size - 1), theta, Cov_fun);
 
-  while(current_size < ns) {
-    // 1. PREDICTION & VARIANCE (O(n^2))
-    arma::mat X_scr = X.rows(scr_ind);
-    arma::mat K_sf = compute_kernel(X_scr, X_sub, theta, Cov_fun);
-    arma::vec mu_s = (K_sf * alpha) + beta0;
-    arma::vec var_s(scr_ind.n_elem);
-    for(arma::uword i=0; i < scr_ind.n_elem; ++i) {
-      arma::rowvec k_i = K_sf.row(i);
-      var_s(i) = sig2 * ((1.0 + nugget) - as_scalar(k_i * K_inv * k_i.t()));
-    }
+  arma::vec mu_val(X_val.n_rows, arma::fill::none);
 
-    // 2. SELECTION
-    arma::vec d_y = square(Y.rows(scr_ind) - mu_s);
-    arma::vec Gu;
+  double mst = arma::mean(arma::square(Y_val - arma::mean(Y)));
+  double mse = 0.0;
+
+  // reusable workspace
+  arma::mat K_sf, V;
+  arma::vec mu_s, v_norms, var_s, y_scr, d_y, Gu;
+  std::vector<arma::uword> next_scr_vec;
+  next_scr_vec.reserve(n_top + n_srs);
+
+  std::vector<unsigned char> in_next_scr(N, 0);
+
+  while (current_size < ns) {
+    K_sf = compute_kernel(X.rows(scr_ind), X_sub_all.rows(0, current_size - 1), theta, Cov_fun);
+
+    mu_s = K_sf * alpha;
+    mu_s += beta0;
+
+    V = arma::solve(arma::trimatu(U).t(), K_sf.t(), arma::solve_opts::fast);
+    v_norms = arma::sum(arma::square(V), 0).t();
+
+    var_s = (1.0 + nugget) - v_norms;
+    var_s *= sig2;
+
+    y_scr = Y.elem(scr_ind);
+    d_y = y_scr - mu_s;
+    d_y %= d_y;
+
     if (c1 == -1.0) {
-      arma::vec c1_vec = 1.0 / (2.0 * (square(d_y) / (3.0 * square(var_s))) + 1.0);
+      arma::vec tmp1 = d_y;
+      tmp1 %= tmp1;
+
+      arma::vec tmp2 = var_s;
+      tmp2 %= tmp2;
+      tmp2 *= 3.0;
+
+      tmp1 /= tmp2;
+      tmp1 *= 2.0;
+      tmp1 += 1.0;
+
+      arma::vec c1_vec = 1.0 / tmp1;
       Gu = c1_vec % d_y + (1.0 - c1_vec) % var_s;
     } else {
       Gu = c1 * d_y + (1.0 - c1) * var_s;
     }
-    arma::uvec sorted_local_idx = sort_index(Gu, "descend");
+
+    arma::uvec sorted_local_idx = arma::sort_index(Gu, "descend");
     arma::uword best_global_idx = scr_ind(sorted_local_idx(0));
 
     index(current_size) = best_global_idx;
-
-    // 3. INCREMENTAL UPDATE (Update model with the new point)
-    arma::mat k_new_mat = compute_kernel(X_sub, X.row(best_global_idx), theta, Cov_fun);
-    K_inv = inverse_update_cpp(K_inv, k_new_mat.col(0), nugget);
-
+    is_active[best_global_idx] = 1;
 
     X_sub_all.row(current_size) = X.row(best_global_idx);
-    Y_sub_all(current_size) = Y(best_global_idx);
-    X_sub = X_sub_all.rows(0, current_size);
-    Y_sub_c = Y_sub_all.head(current_size+1) - beta0;
+    Y_sub_c(current_size) =  Y(best_global_idx) - beta0;
 
-    // 4. PREDICTIVE R-SQUARE (Evaluate the NEWLY updated model)
-    // Recalculate alpha for the expanded system
-    alpha = K_inv * Y_sub_c;
-    sig2 = arma::as_scalar(Y_sub_c.t() * alpha) / (double)(current_size + 1);
+    arma::vec k_new = compute_kernel(
+      X_sub_all.rows(0, current_size - 1),
+      X.row(best_global_idx),
+      theta, Cov_fun
+    ).col(0);
+
+    if ((current_size + 1) % 50 == 0) {
+      arma::mat K_ff_direct = compute_kernel(
+        X_sub_all.rows(0, current_size),
+        X_sub_all.rows(0, current_size),
+        theta, Cov_fun
+      );
+      K_ff_direct.diag() += nugget;
+      U = arma::chol(K_ff_direct);
+    } else {
+      U = inverse_update_cpp(U, k_new, nugget);
+    }
+
+    w = arma::solve(arma::trimatu(U).t(), Y_sub_c.head(current_size + 1));
+    alpha = arma::solve(arma::trimatu(U), w);
+    sig2 = arma::as_scalar(Y_sub_c.head(current_size + 1).t() * alpha) / double(current_size + 1);
 
     K_val_f.col(current_size) = compute_kernel(X_val, X.row(best_global_idx), theta, Cov_fun);
-    mu_val = (K_val_f.cols(0, current_size) * alpha) + beta0;
-    double mse = mean(square(Y_val - mu_val));
-    r_sq_history(current_size) = 1.0 - (mse / mst); // Save at the current size index
+    mu_val = K_val_f.cols(0, current_size) * alpha;
+    mu_val += beta0;
 
-    // 5. REGENERATE SCREENED CANDIDATES
-    arma::uword actual_top = std::min((uword)n_top, (uword)sorted_local_idx.n_elem - 1);
-    arma::uvec top_cand = scr_ind.elem(sorted_local_idx.subvec(1, actual_top));
-    arma::uvec srs_ind = randi<uvec>(n_srs, distr_param(0, N - 1));
-    arma::uvec combined = unique(join_cols(top_cand, srs_ind));
+    mse = arma::mean(arma::square(Y_val - mu_val));
+    r_sq_history(current_size) = 1.0 - mse / mst;
 
-    // Create a boolean mask of all points currently in the active set
-    std::vector<bool> in_active_set(N, false);
-    for(arma::uword i = 0; i < current_size + 1; ++i) {
-      in_active_set[index(i)] = true;
-    }
+    next_scr_vec.clear();
+    next_scr_vec.reserve(n_top + n_srs);
 
-    std::vector<uword> next_scr_vec;
-    next_scr_vec.reserve(combined.n_elem); // Pre-allocate for speed
-
-    for(arma::uword i = 0; i < combined.n_elem; ++i) {
-      // Instant look-up instead of searching through 'index'
-      if(!in_active_set[combined(i)]) {
-        next_scr_vec.push_back(combined(i));
+    if (sorted_local_idx.n_elem > 1) {
+      arma::uword actual_top = std::min<arma::uword>(n_top, sorted_local_idx.n_elem - 1);
+      for (arma::uword j = 1; j <= actual_top; ++j) {
+        arma::uword idx = scr_ind(sorted_local_idx(j));
+        if (!is_active[idx] && !in_next_scr[idx]) {
+          next_scr_vec.push_back(idx);
+          in_next_scr[idx] = 1;
+        }
       }
     }
-    scr_ind = conv_to<uvec>::from(next_scr_vec);
 
+    for (arma::uword j = 0; j < n_srs; ++j) {
+      arma::uword idx = arma::randi<arma::uword>(arma::distr_param(0, N - 1));
+      if (!is_active[idx] && !in_next_scr[idx]) {
+        next_scr_vec.push_back(idx);
+        in_next_scr[idx] = 1;
+      }
+    }
+
+    scr_ind = arma::conv_to<arma::uvec>::from(next_scr_vec);
+
+    for (arma::uword idx : next_scr_vec) {
+      in_next_scr[idx] = 0;
+    }
 
     if (print_result) {
       Rcpp::Rcout << "Size: " << current_size + 1
-                  << " | R2: " << std::fixed << std::setprecision(4) << r_sq_history(current_size)
-                  << std::endl;
+                  << " | R2: " << std::fixed << std::setprecision(4)
+                  << r_sq_history(current_size) << "\n";
     }
-    current_size++;
+
+    ++current_size;
   }
 
   return Rcpp::List::create(
-    Rcpp::_["index"] = index + 1, // Back to 1-based for R
+    Rcpp::_["index"] = index + 1,
     Rcpp::_["r_sq"] = r_sq_history,
     Rcpp::_["sigma2"] = sig2
   );
 }
+
+

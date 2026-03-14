@@ -2,22 +2,35 @@
 #' @importFrom Rcpp sourceCpp
 NULL
 
-#' Correlation function of selected type, supporting both isotropic and product forms
-#' @param X1 n by p matrix of input locations, one observation per row.
-#' @param X2 matrix of design locations if correlation is calculated between \code{X1} and \code{X2} (otherwise calculated between \code{X1} and itself)
-#' @param theta p by 1 vector of lengthscale parameters
-#' @param type one of "\code{Gaussian}", "\code{Matern5_2}", "\code{Matern3_2}"
-#' @export
+#' Compute the Correlation Matrix for Specified Kernels
+#'
+#' @description
+#' Calculates the correlation matrix between two sets of locations using
+#' stationary kernels. This function supports Gaussian, Matern 5/2, and
+#' Matern 3/2 correlation structures in a multivariate product form.
+#'
+#' @param X1 an \code{n x p} matrix of input locations, where each row represents an observation.
+#' @param X2 an \code{m x p} matrix of design locations. If \code{NULL}, the correlation
+#' is calculated between \code{X1} and itself.
+#' @param theta a \code{p x 1} vector of lengthscale parameters corresponding to each dimension.
+#' @param type a character string specifying the kernel type: "\code{Gaussian}",
+#' "\code{Matern5_2}", or "\code{Matern3_2}".
+#'
 #' @details
-#' Definition of univariate correlation function and hyperparameters:
+#' For multivariate inputs, the correlation function is defined as the product
+#' of univariate kernels across all \eqn{p} dimensions:
+#' \deqn{C(\mathbf{x}, \mathbf{y}, \boldsymbol{\theta}) = \prod_{k=1}^{p} c_k(|x_k - y_k|, \theta_k)}
+#'
+#' The available univariate correlation functions \eqn{c(d)} (where \eqn{d = |x - y|}) are:
 #' \itemize{
-#' \item "\code{Gaussian}": \eqn{c(x, y) = exp(-(x-y)^2/theta)}
-#' \item "\code{Matern5_2}": \eqn{c(x, y) = (1+sqrt(5)/theta * abs(x-y) + 5/(3*theta^2)(x-y)^2) * exp(-sqrt(5)*abs(x-y)/theta)}
-#' \item "\code{Matern3_2}": \eqn{c(x, y) = (1+sqrt(3)/theta * abs(x-y)) * exp(-sqrt(3)*abs(x-y)/theta)}
+#'   \item "\code{Gaussian}": \deqn{c(d, \theta) = \exp\left(-\frac{d^2}{\theta}\right)}
+#'   \item "\code{Matern5_2}": \deqn{c(d, \theta) = \left(1 + \frac{\sqrt{5}d}{\theta} + \frac{5d^2}{3\theta^2}\right) \exp\left(-\frac{\sqrt{5}d}{\theta}\right)}
+#'   \item "\code{Matern3_2}": \deqn{c(d, \theta) = \left(1 + \frac{\sqrt{3}d}{\theta}\right) \exp\left(-\frac{\sqrt{3}d}{\theta}\right)}
 #' }
-#' Multivariate correlations are product of univariate ones.
+#'
+#' @return A numeric matrix of dimensions \code{nrow(X1) x nrow(X2)}.
+#' @export
 compute_kernel <- function(X1, X2 = NULL, theta, type) {
-  # Ensure inputs are matrices
   X1 <- as.matrix(X1)
   if(is.null(X2)){
     X2 <- as.matrix(X1)
@@ -30,18 +43,18 @@ compute_kernel <- function(X1, X2 = NULL, theta, type) {
 #'
 #' @description
 #' Performs Gaussian Process prediction for a given set of new design locations,
-#' using hyperparameters provided in the Parameters list.
+#' using hyperparameters provided in the parameters list.
 #'
-#' @param X_new An \code{m x p} matrix of new design locations to predict.
-#' @param X An \code{n x p} matrix of training design locations.
-#' @param Y An \code{n x 1} vector of observed responses at training locations.
-#' @param Cov_fun Covariance kernel type, either "Gaussian", "Matern5_2", or "Matern3_2".
-#' @param Parameters A list of hyperparameters containing \code{theta}, \code{g}, \code{sigma2}, and \code{beta0}
+#' @param X_new an \code{m x p} matrix of new design locations to predict.
+#' @param X an \code{n x p} matrix of training design locations.
+#' @param Y an \code{n x 1} vector of observed responses at training locations.
+#' @param Cov_fun covariance kernel type, either "Gaussian", "Matern5_2", or "Matern3_2".
+#' @param parameters a list of hyperparameters containing \code{theta}, \code{g}, \code{sigma2}, and \code{beta0}
 #'
-#' @return A list containing:
+#' @return a list containing:
 #' \itemize{
-#'   \item \code{mean}: A vector of predicted means at \code{X_new}.
-#'   \item \code{sd2}: A vector of predicted variances (posterior variances) at \code{X_new}.
+#'   \item \code{mean}: a vector of predicted means at \code{X_new}.
+#'   \item \code{sd2}: a vector of predicted variances (posterior variances) at \code{X_new}.
 #' }
 #'
 #' @details
@@ -50,48 +63,64 @@ compute_kernel <- function(X1, X2 = NULL, theta, type) {
 #' \deqn{s^2(x_{new}) = \sigma^2 [ (1 + g) - k(x_{new}, X) (K + gI)^{-1} k(X, x_{new}) ]}
 #'
 #' @export
-#' @export
-gp_predict <- function(X_new, X, Y, Cov_fun, Parameters) {
-  gp_predict_cpp(as.matrix(X_new), as.matrix(X), as.numeric(Y), Cov_fun, Parameters)
+gp_predict <- function(X_new, X, Y, Cov_fun, parameters) {
+  gp_predict_cpp(as.matrix(X_new), as.matrix(X), as.numeric(Y), Cov_fun, parameters)
 }
 
 
 #' Generalization Error Minimization in SubSampling
 #'
 #' @description
-#' Select subdata based on GEMSS criterion
+#' Implements the Generalized Error-Minimizing Subsampling (GEMSS) algorithm to select subdata for
+#' Gaussian Process models.
 #'
-#' @param X An \code{n x p} matrix of input design locations.
-#' @param Y An \code{n x 1} vector of observed responses.
-#' @param ns Target size of the final subdata.
-#' @param covtype Covariance kernel type, either "Gaussian", "Matern5_2", or "Matern3_2".
-#' @param Parameters A list of hyperparameters: \code{beta0} (mean),
+#' @param X an \code{n x p} matrix of input design locations.
+#' @param Y an \code{n x 1} vector of observed responses.
+#' @param ns target size of the final subdata.
+#' @param covtype covariance kernel type, either "Gaussian", "Matern5_2", or "Matern3_2".
+#' @param parameters a list of hyperparameters: \code{beta0} (mean),
 #' \code{theta} (length-scales), and \code{g} (nugget). If not provided,
 #' these are estimated via \code{\link[hetGP]{mleHomGP}} on a pilot sample
 #' generated by \code{\link[twinning]{twin}}.
-#' @param X_val,Y_val Optional validation data for calculating the predictive R-squared.
+#' @param X_val,Y_val optional validation data for calculating the predictive R-squared.
 #' If omitted, a random sample of size \code{min(0.1*n, 5000)} is used.
-#' @param c1 Weight of the first term in GEMSS criterion (\eqn{c_2 = 1 - c_1}).
+#' @param c1 value between 0 and 1 of the first term in GEMSS criterion (\eqn{c_2 = 1 - c_1}).
 #' The default (\code{NULL}) uses the adaptive weighting proposed in the paper.
-#' @param n_srs,n_top Optional values to determine the candidate set for each iteration:
+#' @param n_srs,n_top optional values to determine the candidate set for each iteration:
 #' \itemize{
-#'   \item \code{n_srs}: Number of random data points (default is \code{ns/2}).
-#'   \item \code{n_top}: Number of top-ranked points from the previous iteration (default is \code{ns/2}).
+#'   \item \code{n_srs}: number of random data points (default is \code{ns/2}).
+#'   \item \code{n_top}: number of top-ranked points from the previous iteration (default is \code{ns/2}).
 #' }
-#' @param verbose Logical; if \code{TRUE}, progress is printed at each iteration.
+#' @param verbose logical; if \code{TRUE}, progress is printed at each iteration.
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item \code{index}: The indices of the selected subdata.
-#'   \item \code{r_sq}: A data.frame of size and predictive R-square.
-#'   \item \code{sigma2}: Plug-in estimator of the variance.
+#'   \item \code{index}: the indices of the selected subdata.
+#'   \item \code{r_sq}: a data.frame containing the subdata size and the corresponding predictive R-square.
+#'   \item \code{parameters}: a list of hyperparameters containing \code{beta0}, \code{theta}, \code{g}, and \code{sigma2} (the plug-in estimator of the variance).
 #' }
 #'
 #' @details
-#' The GEMSS criterion is \deqn{\tilde{\mathcal{G}} = c_1 \delta_1^2 + c_2 \delta_2}
-#' where \eqn{\delta_1} is the prediction error and \eqn{\delta_2} is the posterior variance.
-#' \eqn{c_1} and \eqn{c_2 = 1 - c_1} control the balance between prediction accuracy
-#' and space-filling properties.
+#' The GEMSS criterion is defined as:
+#' \deqn{\mathcal{G} = c_1 \delta_1^2 + c_2 \delta_2}
+#' where \eqn{\delta_1^2} is the squared prediction error and \eqn{\delta_2} is the
+#' posterior variance. The weights \eqn{c_1} and \eqn{c_2 = 1 - c_1} control the
+#' balance between prediction accuracy and space-filling properties.
+#'
+#' The default value for \eqn{c_1} is \eqn{3\delta_2^2 / (2\delta_1^4 + 3\delta_2^2)},
+#' which is derived by minimizing the variance of the GEMSS criterion. Setting
+#' \eqn{c_1 = 0} results in a space-filling subdata
+#'
+#' The algorithm initializes with a small random sample of size 2 and
+#' sequentially adds the point from the candidate set that maximizes \eqn{\mathcal{G}}
+#' until the subdata reaches size ns.
+#'
+#' The candidate set in each iteration is composed of two parts: a random
+#' sample of size n_srs, and the n_top points that yielded the highest
+#' \eqn{\mathcal{G}} values in the previous iteration.
+#'
+#' All GP hyperparameters except \eqn{\sigma^2} are estimated from an initial
+#' pilot sample of size \eqn{ns} and remain fixed throughout the selection process.
 #'
 #' @examples
 #' # --- Example 1: 1D Regression ---
@@ -104,10 +133,10 @@ gp_predict <- function(X_new, X, Y, Cov_fun, Parameters) {
 #'
 #' # Predict on a grid
 #' x.grid <- as.matrix(seq(0, 1, 0.01))
-#' y.pred <- gp_predict(x.grid, X[res$index, ], Y[res$index], "Matern5_2", res$Parameters)
+#' y.pred <- gp_predict(x.grid, X[res$index, ], Y[res$index], "Matern5_2", res$parameters)
 #'
 #' # Visualize 1D Results
-#' plot(X, Y, col = "gray", main = "GEMSS 1D Selection")
+#' plot(X, Y, col = "grey", main = "Selected Subdata and GP Prediction")
 #' points(X[res$index, ], Y[res$index], col = "red", pch = 19)
 #' lines(x.grid, y.pred$mean, col = "red", lwd = 2)
 #'
@@ -128,10 +157,15 @@ gp_predict <- function(X_new, X, Y, Cov_fun, Parameters) {
 #'   ngrid <- 50 # Reduced grid size for faster example execution
 #'   gx <- seq(0, 1, len = ngrid)
 #'   grid <- as.matrix(expand.grid(x1 = gx, x2 = gx))
-#'   prep <- gp_predict(grid, X2D[res2D$index, ], Y2D[res2D$index], "Matern5_2", res2D$Parameters)
 #'
+#'   # plot the contour of Michalewicz function
+#'   y_grid <- apply(grid, 1, michalewicz)
+#'   ContourFunctions::cf_grid(gx, gx, matrix(y_grid, ngrid, ngrid),
+#'                           bar = TRUE, main = "Michalewicz Function")
+#'
+#'   prep <- gp_predict(grid, X2D[res2D$index, ], Y2D[res2D$index], "Matern5_2", res2D$parameters)
 #'   ContourFunctions::cf_grid(gx, gx, matrix(prep$mean, ngrid, ngrid),
-#'                             bar = TRUE, main = "GEMSS 2D Selection",
+#'                             bar = TRUE, main = "Prediction Using Selected Subdata",
 #'                             afterplotfunc = function() {
 #'                               points(X2D[res2D$index, ], col = 'blue', pch = 1, cex = 1.5, lwd = 2)
 #'                             })
@@ -139,40 +173,40 @@ gp_predict <- function(X_new, X, Y, Cov_fun, Parameters) {
 #' }
 #'
 #' @export
-gemss_select <- function(X, Y, ns, covtype, Parameters = NULL, X_val = NULL, Y_val = NULL, c1 = NULL, n_srs = NULL, n_top = NULL, verbose = TRUE) {
+gemss_select <- function(X, Y, ns, covtype, parameters = NULL, X_val = NULL, Y_val = NULL, c1 = NULL, n_srs = NULL, n_top = NULL, verbose = TRUE) {
   # 1. Validation
   if (nrow(X) != length(Y)) stop("Dimensions of X and Y do not match.")
   if (ns < 0 ) stop("ns should be positive integer")
   if (!(covtype %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("covtype should be one of “Gaussian”, “Matern5_2”, “Matern3_2”")
 
-  if (is.null(Parameters)) Parameters <- list()
+  if (is.null(parameters)) parameters <- list()
 
   # 1. Validate theta length
-  if (!is.null(Parameters$theta) && length(Parameters$theta) != ncol(X)) {
+  if (!is.null(parameters$theta) && length(parameters$theta) != ncol(X)) {
     warning("Length of theta does not match ncol(X). Estimating theta instead.")
-    Parameters$theta <- NULL
+    parameters$theta <- NULL
   }
 
   # 2. Check for missingness (using || for safety)
-  if (is.null(Parameters$theta) || is.null(Parameters$g) || is.null(Parameters$beta0)) {
+  if (is.null(parameters$theta) || is.null(parameters$g) || is.null(parameters$beta0)) {
 
     # Pilot Sample Selection
     ind_for_est <- twinning::twin(cbind(X, Y), r = floor(nrow(X) / ns))
 
-    # Estimate only what is missing (known = Parameters handles the logic)
+    # Estimate only what is missing (known = parameters handles the logic)
     est_GP <- hetGP::mleHomGP(
       X = X[ind_for_est, , drop = FALSE],
       Z = Y[ind_for_est],
       covtype = covtype,
-      known = Parameters,
+      known = parameters,
       maxit = 10000,
       noiseControl = list(g_bounds = c(sqrt(.Machine$double.eps), 10000))
     )
 
-    # 3. Fill the gaps in Parameters list
-    Parameters$theta <- est_GP$theta
-    Parameters$g     <- est_GP$g
-    Parameters$beta0 <- est_GP$beta0
+    # 3. Fill the gaps in parameters list
+    parameters$theta <- est_GP$theta
+    parameters$g     <- est_GP$g
+    parameters$beta0 <- est_GP$beta0
   }
 
   # 3. Validation Set Handling
@@ -208,18 +242,18 @@ gemss_select <- function(X, Y, ns, covtype, Parameters = NULL, X_val = NULL, Y_v
     c1 = c1,
     n_srs = as.integer(n_srs),
     n_top = as.integer(n_top),
-    theta = Parameters$theta,
-    nugget = Parameters$g,
-    beta0 = Parameters$beta0,
+    theta = parameters$theta,
+    nugget = parameters$g,
+    beta0 = parameters$beta0,
     Cov_fun = covtype,
     print_result = verbose
   )
-  Parameters$sigma2 = results$sigma2
+  parameters$sigma2 = results$sigma2
   # 4. Format Output
   list(
     index = not_val_ind[results$index],
-    r_sq = results$r_sq,
-    Parameters = Parameters
+    r_sq = data.frame(size = 3:ns, r_sq = round(results$r_sq[-c(1:2)], 4)),
+    parameters = parameters
   )
 }
 
