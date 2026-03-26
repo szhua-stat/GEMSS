@@ -313,4 +313,73 @@ Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const ar
   );
 }
 
+// [[Rcpp::export]]
+Rcpp::List gemss_removal_cpp(arma::mat X, arma::vec Y, const arma::vec& theta, double nugget, double beta0, double sig2,
+                             std::string Cov_fun, int n_remove, double c1) {
+  int n = X.n_rows;
+  arma::uvec removed_order(n_remove);
+  arma::uvec current_indices = arma::regspace<arma::uvec>(0, n - 1);
+
+  arma::mat K = compute_kernel(X, X, theta, Cov_fun);
+  K.diag() += nugget;
+  arma::mat R_inv = arma::inv_sympd(K);
+
+  arma::vec Y_centered = Y - beta0;
+  arma::vec inv_diag, eps_y, eps_r, cri, b;
+
+  for (int j = 0; j < n_remove; ++j) {
+    arma::uword n_cur = current_indices.n_elem;
+
+    // Dubrule Formula
+    inv_diag = R_inv.diag();
+    eps_y = (R_inv * Y_centered) / inv_diag;
+    eps_r = sig2 / inv_diag;
+
+    // Compute GEMSS Criterion for each point
+    cri.set_size(n_cur);
+    if (c1 == -1.0) {
+      for (arma::uword i = 0; i < n_cur; ++i) {
+        double var_r = eps_r(i);
+        double err_y = eps_y(i);
+
+        double err_y2 = err_y * err_y;
+        double err_y4 = err_y2 * err_y2;
+        double var_r2 = var_r * var_r;
+
+        double c1 = 1.0 / (2.0 * (err_y4 / (3.0 * var_r2)) + 1.0);
+        cri(i) = c1 * err_y2 + (1.0 - c1) * var_r;
+      }
+    } else {
+      for (arma::uword i = 0; i < n_cur; ++i) {
+        double var_r = eps_r(i);
+        double err_y = eps_y(i);
+
+        cri(i) = c1 * err_y * err_y + (1.0 - c1) * var_r;
+      }
+
+    }
+
+
+    arma::uword loc = cri.index_min();
+    removed_order(j) = current_indices(loc) + 1;
+
+    double d_val = inv_diag(loc);
+
+    // update
+    // O(n^2) In-place Inverse Update
+    b = R_inv.col(loc);
+    R_inv -= (b * b.t()) / d_val;
+
+    R_inv.shed_col(loc);
+    R_inv.shed_row(loc);
+
+    Y_centered.shed_row(loc);
+    current_indices.shed_row(loc);
+  }
+
+  return Rcpp::List::create(
+    Rcpp::Named("removed_order") = removed_order,
+    Rcpp::Named("index") = current_indices + 1
+  );
+}
 

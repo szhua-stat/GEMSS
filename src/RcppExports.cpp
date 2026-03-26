@@ -64,11 +64,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// gemss_removal_cpp
+Rcpp::List gemss_removal_cpp(arma::mat X, arma::vec Y, const arma::vec& theta, double nugget, double beta0, double sig2, std::string Cov_fun, int n_remove, double c1);
+RcppExport SEXP _GEMSS_gemss_removal_cpp(SEXP XSEXP, SEXP YSEXP, SEXP thetaSEXP, SEXP nuggetSEXP, SEXP beta0SEXP, SEXP sig2SEXP, SEXP Cov_funSEXP, SEXP n_removeSEXP, SEXP c1SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< double >::type nugget(nuggetSEXP);
+    Rcpp::traits::input_parameter< double >::type beta0(beta0SEXP);
+    Rcpp::traits::input_parameter< double >::type sig2(sig2SEXP);
+    Rcpp::traits::input_parameter< std::string >::type Cov_fun(Cov_funSEXP);
+    Rcpp::traits::input_parameter< int >::type n_remove(n_removeSEXP);
+    Rcpp::traits::input_parameter< double >::type c1(c1SEXP);
+    rcpp_result_gen = Rcpp::wrap(gemss_removal_cpp(X, Y, theta, nugget, beta0, sig2, Cov_fun, n_remove, c1));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_GEMSS_compute_kernel", (DL_FUNC) &_GEMSS_compute_kernel, 4},
     {"_GEMSS_gp_predict_cpp", (DL_FUNC) &_GEMSS_gp_predict_cpp, 5},
     {"_GEMSS_GEMSS_cpp_update_sig", (DL_FUNC) &_GEMSS_GEMSS_cpp_update_sig, 14},
+    {"_GEMSS_gemss_removal_cpp", (DL_FUNC) &_GEMSS_gemss_removal_cpp, 9},
     {NULL, NULL, 0}
 };
 

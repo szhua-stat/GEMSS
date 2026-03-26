@@ -4,24 +4,26 @@
 \alias{gp_predict}
 \title{Gaussian Process Prediction}
 \usage{
-gp_predict(X_new, X, Y, Cov_fun, parameters)
+gp_predict(X_new, X, Y, covtype, parameters)
 }
 \arguments{
-\item{X_new}{an \code{m x p} matrix of new design locations to predict.}
+\item{X_new}{a \code{m x p} matrix of new design locations to predict.}
 
-\item{X}{an \code{n x p} matrix of training design locations.}
+\item{X}{a \code{n x p} matrix of training design locations.}
 
-\item{Y}{an \code{n x 1} vector of observed responses at training locations.}
+\item{Y}{a \code{n x 1} numeric vector of observed responses at training locations.}
 
-\item{Cov_fun}{covariance kernel type, either "Gaussian", "Matern5_2", or "Matern3_2".}
+\item{covtype}{a character string specifying the covariance kernel type. Must be
+one of "\code{Gaussian}", "\code{Matern5_2}", or "\code{Matern3_2}".}
 
-\item{parameters}{a list of hyperparameters containing \code{theta}, \code{g}, \code{sigma2}, and \code{beta0}}
+\item{parameters}{a list of hyperparameters containing \code{theta}, \code{g},
+\code{sigma2}, and \code{beta0}.}
 }
 \value{
 a list containing:
 \itemize{
-\item \code{mean}: a vector of predicted means at \code{X_new}.
-\item \code{sd2}: a vector of predicted variances (posterior variances) at \code{X_new}.
+\item \code{mean}: a \code{m x 1} numeric vector of predicted means at \code{X_new}.
+\item \code{sd2}: a \code{m x 1} numeric vector of predicted variances at \code{X_new}.
 }
 }
 \description{

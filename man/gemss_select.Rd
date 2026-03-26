@@ -2,7 +2,7 @@
 % Please edit documentation in R/GEMSS.R
 \name{gemss_select}
 \alias{gemss_select}
-\title{Generalization Error Minimization in SubSampling}
+\title{Subdata Selection via GEMSS}
 \usage{
 gemss_select(
   X,
@@ -21,7 +21,7 @@ gemss_select(
 \arguments{
 \item{X}{an \code{n x p} matrix of input design locations.}
 
-\item{Y}{an \code{n x 1} vector of observed responses.}
+\item{Y}{an \code{n x 1} numeric vector of observed responses.}
 
 \item{ns}{target size of the final subdata.}
 
@@ -47,7 +47,7 @@ The default (\code{NULL}) uses the adaptive weighting proposed in the paper.}
 \item{verbose}{logical; if \code{TRUE}, progress is printed at each iteration.}
 }
 \value{
-A list containing:
+a list containing:
 \itemize{
 \item \code{index}: the indices of the selected subdata.
 \item \code{r_sq}: a data.frame containing the subdata size and the corresponding predictive R-square.

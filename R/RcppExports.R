@@ -13,3 +13,7 @@ GEMSS_cpp_update_sig <- function(X, Y, X_val, Y_val, initial_idx, ns, c1, n_srs,
     .Call(`_GEMSS_GEMSS_cpp_update_sig`, X, Y, X_val, Y_val, initial_idx, ns, c1, n_srs, n_top, theta, nugget, beta0, Cov_fun, print_result)
 }
 
+gemss_removal_cpp <- function(X, Y, theta, nugget, beta0, sig2, Cov_fun, n_remove, c1) {
+    .Call(`_GEMSS_gemss_removal_cpp`, X, Y, theta, nugget, beta0, sig2, Cov_fun, n_remove, c1)
+}
+

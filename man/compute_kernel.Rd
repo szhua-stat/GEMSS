@@ -7,18 +7,19 @@
 compute_kernel(x1, x2, theta, type)
 }
 \arguments{
-\item{theta}{a \code{p x 1} vector of lengthscale parameters corresponding to each dimension.}
+\item{theta}{a \code{p x 1} numeric vector of lengthscale parameters
+corresponding to each dimension.}
 
-\item{type}{a character string specifying the kernel type: "\code{Gaussian}",
-"\code{Matern5_2}", or "\code{Matern3_2}".}
+\item{type}{a character string specifying the kernel type. Must be one of
+"\code{Gaussian}", "\code{Matern5_2}", or "\code{Matern3_2}".}
 
-\item{X1}{an \code{n x p} matrix of input locations, where each row represents an observation.}
+\item{X1}{a matrix of input locations, where each row represents an observation.}
 
-\item{X2}{an \code{m x p} matrix of design locations. If \code{NULL}, the correlation
+\item{X2}{a matrix of design locations. If \code{NULL}, the correlation
 is calculated between \code{X1} and itself.}
 }
 \value{
-A numeric matrix of dimensions \code{nrow(X1) x nrow(X2)}.
+a numeric matrix of dimensions \code{nrow(X1) x nrow(X2)}.
 }
 \description{
 Calculates the correlation matrix between two sets of locations using
