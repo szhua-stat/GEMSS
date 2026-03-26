@@ -298,7 +298,6 @@ gemss_select <- function(X, Y, ns, covtype, parameters = NULL, X_val = NULL, Y_v
 #' the R-squared. Otherwise, no removal is suggested.
 #'
 #' @export
-
 gemss_remove <- function(X, Y, X_val, Y_val, n_remove, covtype, c1 = NULL, threshold = 0.01, verbose = TRUE) {
   if (nrow(X) != length(Y)) stop("Dimensions of X and Y do not match.")
 
