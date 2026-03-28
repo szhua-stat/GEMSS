@@ -27,7 +27,7 @@ packages <- c('Metrics', 'MultiRNG', 'hetGP', 'mvtnorm', 'SPlit', 'class', 'mixA
 # Cov_Fun: choose the GP Kernel, Matern3_2 or Matern5_2
 # SNR: signal-to-noise ratio. Either 2 or 10 in our setting
 
-index1 = 4
+index1 = 1
 index2 = 1
 index3 = 1
 index4 = 1
@@ -49,7 +49,6 @@ ns_set = c(100, 200, 300, 400)
 
 
 dup = 10 # 50 Replication
-seed <- 1
 
 print(paste0("---",n_train, '-', n_test,"---"))
 print(paste0('fun_type = ', fun_type,', X_type = ', X_type, ', SNR = ', SNR))

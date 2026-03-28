@@ -40,7 +40,7 @@ contour_gp_pred <- function(X, Y, index, g = NULL, r = NULL, X_test, Y_test, Cov
           })
 }
 
-setwd("real_estate_valuation_dataset")
+setwd("elimination_of_redundant_data_points")
 ##### Dropwave dataset simulation #####
 # original generated code
 # set.seed(1)
