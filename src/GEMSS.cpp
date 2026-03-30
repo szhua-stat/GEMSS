@@ -382,4 +382,3 @@ Rcpp::List gemss_removal_cpp(arma::mat X, arma::vec Y, const arma::vec& theta, d
     Rcpp::Named("index") = current_indices + 1
   );
 }
-

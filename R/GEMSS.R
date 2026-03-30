@@ -190,7 +190,8 @@ gemss_select <- function(X, Y, ns, covtype, parameters = NULL, X_val = NULL, Y_v
   }
 
   if (is.null(parameters$theta) || is.null(parameters$g) || is.null(parameters$sigma2)) {
-
+    known <- parameters
+    parameters <- list()
     # Pilot Sample Selection
     ind_for_est <- twinning::twin(cbind(X, Y), r = floor(nrow(X) / ns))
 
@@ -199,7 +200,7 @@ gemss_select <- function(X, Y, ns, covtype, parameters = NULL, X_val = NULL, Y_v
       X = X[ind_for_est, , drop = FALSE],
       Z = Y[ind_for_est],
       covtype = covtype,
-      known = parameters,
+      known = known,
       maxit = 10000,
       noiseControl = list(g_bounds = c(sqrt(.Machine$double.eps), 10000))
     )
