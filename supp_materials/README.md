@@ -52,7 +52,9 @@ output:
    - `doParallel`
    - `foreach`
 
-   The script also requires the `GEMSS` package. If it is not available locally, install it from GitHub first.
+   The script also requires the `GEMSS` package. If it is not available locally, install it from GitHub first. (`remotes::install_github("szhua-stat/GEMSS")`)
+   
+   
 
 2. **Load the required packages and source helper functions**
 
@@ -155,7 +157,7 @@ To reproduce Figure 2, run `sec51_extraction_sim.R` under the following four set
    - `GEMSS`
    - `ContourFunctions`
 
-   If the `GEMSS` package is not available locally, install it first (e.g., from GitHub).
+   If the `GEMSS` package is not available locally, install it first (e.g., from GitHub `remotes::install_github("szhua-stat/GEMSS")`).
 
 2. **Load the required packages**
 
@@ -279,7 +281,7 @@ To reproduce Figure 2, run `sec51_extraction_sim.R` under the following four set
    - `foreach`
    - `GEMSS`
 
-   If the `GEMSS` package is not available locally, install it first (e.g., from GitHub).
+   If the `GEMSS` package is not available locally, install it first (e.g., from GitHub `remotes::install_github("szhua-stat/GEMSS")`).
 
 2. **Load the required packages**
 
@@ -392,7 +394,7 @@ These two settings correspond to the two kernel choices reported for the SARCOS 
    - `GEMSS`
    - `ContourFunctions`
 
-   If the `GEMSS` package is not available locally, install it first (e.g., from GitHub).
+   If the `GEMSS` package is not available locally, install it first (e.g., from GitHub `remotes::install_github("szhua-stat/GEMSS")`).
 
 2. **Load the required packages**
 

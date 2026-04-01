@@ -5,12 +5,15 @@
 # install.packages(packages)
 #
 # download GEMSS package
-# remotes::install_github("szhua-stat/GEMSS")
+remotes::install_github("szhua-stat/GEMSS")
 
-# laod packages
+# load packages
 pacman::p_load(Metrics, MultiRNG, hetGP, mvtnorm, SPlit, class, mixAK, stringr, mined, twinning,
                supercompress, svMisc, tidyverse, gss, FNN, tmvtnorm, np, twingp,
                GpGp, fields, doParallel, foreach, GEMSS)
+
+# download mined package (removed from CRAN since 2026)
+remotes::install_version("mined", version = "1.0.3")
 
 #### function ####
 # Chang(2023)
