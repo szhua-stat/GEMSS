@@ -131,3 +131,8 @@ if (requireNamespace("ContourFunctions", quietly = TRUE)) {
 }
 
 }
+\references{
+Chang, M. C., Hua, S. Z., & Wu, C. F. J. (2026). GEMSS-Driven Subsampling
+for Information Extraction and Redundancy Elimination. \emph{Technometrics},
+1–20. \doi{10.1080/00401706.2026.2670596}
+}

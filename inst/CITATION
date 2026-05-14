@@ -1,0 +1,14 @@
+bibentry(
+  bibtype = "Article",
+  title = "GEMSS-Driven Subsampling for Information Extraction and Redundancy Elimination",
+  author = c(
+    person("Ming-Chung", "Chang"),
+    person("Sheng-Zhan", "Hua"),
+    person("C. F. Jeff", "Wu")
+  ),
+  journal = "Technometrics",
+  year = 2026,
+  pages = "1-20",
+  doi = "10.1080/00401706.2026.2670596",
+  textVersion = "Chang, M. C., Hua, S. Z., & Wu, C. F. J. (2026). GEMSS-Driven Subsampling for Information Extraction and Redundancy Elimination. Technometrics, 1-20. https://doi.org/10.1080/00401706.2026.2670596"
+)

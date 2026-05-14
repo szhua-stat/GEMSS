@@ -20,7 +20,7 @@ NULL
 #' @details
 #' For multivariate inputs, the correlation function is defined as the product
 #' of univariate kernels across all \eqn{p} dimensions:
-#' \deqn{C(\mathbf{x}, \mathbf{y}, \boldsymbol{\theta}) = \prod_{k=1}^{p} c_k(|x_k - y_k|, \theta_k)}
+#' \deqn{C(\mathbf{x}, \mathbf{y}, \mathbf{\theta}) = \prod_{k=1}^{p} c_k(|x_k - y_k|, \theta_k)}
 #'
 #' The available univariate correlation functions \eqn{c(d)} (where \eqn{d = |x - y|}) are:
 #' \itemize{
@@ -32,6 +32,7 @@ NULL
 #' @return a numeric matrix of dimensions \code{nrow(X1) x nrow(X2)}.
 #' @export
 compute_kernel <- function(X1, X2 = NULL, theta, type) {
+  if (!(type %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("type should be one of 'Gaussian', 'Matern5_2', 'Matern3_2'")
   X1 <- as.matrix(X1)
   if(is.null(X2)){
     X2 <- as.matrix(X1)
@@ -67,6 +68,7 @@ compute_kernel <- function(X1, X2 = NULL, theta, type) {
 #'
 #' @export
 gp_predict <- function(X_new, X, Y, covtype, parameters) {
+  if (!(covtype %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("covtype should be one of 'Gaussian', 'Matern5_2', 'Matern3_2'")
   gp_predict_cpp(as.matrix(X_new), as.matrix(X), as.numeric(Y), covtype, parameters)
 }
 
@@ -124,6 +126,11 @@ gp_predict <- function(X_new, X, Y, covtype, parameters) {
 #' All GP hyperparameters except \eqn{\sigma^2} are estimated from an initial
 #' pilot sample of size \eqn{ns} and remain fixed throughout the selection process.
 #'
+#'@references
+#' Chang, M. C., Hua, S. Z., & Wu, C. F. J. (2026). GEMSS-Driven Subsampling
+#' for Information Extraction and Redundancy Elimination. \emph{Technometrics},
+#' 1–20. \doi{10.1080/00401706.2026.2670596}
+#'
 #' @examples
 #' # --- Example 1: 1D Regression ---
 #' fx <- function(x) cos((x - 0.8) * 2 * pi)^7 * sin(x) + 5 * sin(x) * (sin(x^2))^10
@@ -180,7 +187,7 @@ gemss_select <- function(X, Y, ns, covtype, parameters = NULL, X_val = NULL, Y_v
 
   if (ns < 0 ) stop("ns should be positive integer")
 
-  if (!(covtype %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("covtype should be one of “Gaussian”, “Matern5_2”, “Matern3_2”")
+  if (!(covtype %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("covtype should be one of 'Gaussian', 'Matern5_2', 'Matern3_2'")
 
   if (is.null(parameters)) parameters <- list()
 
@@ -298,13 +305,48 @@ gemss_select <- function(X, Y, ns, covtype, parameters = NULL, X_val = NULL, Y_v
 #' the specified \code{threshold}, the algorithm reports the subset that maximizes
 #' the R-squared. Otherwise, no removal is suggested.
 #'
+#' @references
+#' Chang, M. C., Hua, S. Z., & Wu, C. F. J. (2026). GEMSS-Driven Subsampling
+#' for Information Extraction and Redundancy Elimination. \emph{Technometrics},
+#' 1–20. \doi{10.1080/00401706.2026.2670596}
+#'@examples
+#' # Generate 1D data with intentionally clustered (redundant) points
+#' set.seed(123)
+#' X_reg <- seq(0, 1, length.out = 20)
+#' X_cluster <- rnorm(10, mean = 0.5, sd = 0.01) # Redundant points tightly packed around x=0.5
+#' X <- as.matrix(c(X_reg, X_cluster))
+#' Y <- sin(2 * pi * X) + rnorm(30, sd = 0.05)
+#'
+#' # Generate validation data
+#' X_val <- as.matrix(seq(0.05, 0.95, length.out = 20))
+#' Y_val <- sin(2 * pi * X_val) + rnorm(20, sd = 0.05)
+#'
+#' # Run GEMSS removal
+#' res <- gemss_remove(X, Y, X_val, Y_val, n_remove = 10, covtype = "Matern3_2", verbose = TRUE)
+#'
+#' # View the indices of the removed points
+#' print(res$remove)
+#' print(res$eval_matrix)
+#'
+#' # Plot the removal data points (red)
+#' plot(X, Y, main = "GEMSS Data Removal")
+#' points(X[res$remove], Y[res$remove], pch = 19, col = 2)
+#'
+#' # Compare GP predictions before and after removal
+#' x_seq <- as.matrix(seq(0, 1, 0.02))
+#' gp_bf <- hetGP::mleHomGP(X, Y, covtype = "Matern3_2")
+#' lines(x_seq, predict(gp_bf, x_seq)$mean, col = 1, lty = 2)
+#' gp_af <- hetGP::mleHomGP(X[-res$remove, , drop = FALSE], Y[-res$remove], covtype = "Matern3_2")
+#' lines(x_seq, predict(gp_af, x_seq)$mean, col = 3)
+#'
+#' @importFrom stats predict
 #' @export
 gemss_remove <- function(X, Y, X_val, Y_val, n_remove, covtype, c1 = NULL, threshold = 0.01, verbose = TRUE) {
   if (nrow(X) != length(Y)) stop("Dimensions of X and Y do not match.")
 
   if (n_remove < 0 ) stop("n_remove should be positive integer")
 
-  if (!(covtype %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("covtype should be one of “Gaussian”, “Matern5_2”, “Matern3_2”")
+  if (!(covtype %in% c("Gaussian", "Matern5_2", "Matern3_2"))) stop("covtype should be one of 'Gaussian', 'Matern5_2', 'Matern3_2'")
 
   if(is.null(c1)){
     c1 = -1
@@ -327,7 +369,7 @@ gemss_remove <- function(X, Y, X_val, Y_val, n_remove, covtype, c1 = NULL, thres
   removal_sequence <- cpp_res$removed_order
   index_remain <- cpp_res$index
 
-  mse0 <- mean((Y_val - predict(mleHomGP(X,Y, covtype = covtype), X_val)$mean)^2)
+  mse0 <- mean((Y_val - predict(hetGP::mleHomGP(X,Y, covtype = covtype), X_val)$mean)^2)
   eval_matrix <- matrix(NA, nrow = n_remove, ncol = 3)
   colnames(eval_matrix) <- c("j", "removed_id", "R2_pred")
 
@@ -338,7 +380,7 @@ gemss_remove <- function(X, Y, X_val, Y_val, n_remove, covtype, c1 = NULL, thres
     current_indices <- index_tr[1:(n_tr - j)]
 
     # Refit and predict
-    fit <- mleHomGP(X[current_indices, , drop = FALSE], Y[current_indices], covtype = covtype)
+    fit <- hetGP::mleHomGP(X[current_indices, , drop = FALSE], Y[current_indices], covtype = covtype)
     pred <- predict(fit, X_val)$mean
     mspe <- mean((Y_val - pred)^2)
 

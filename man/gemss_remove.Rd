@@ -62,3 +62,39 @@ If there exists a reduced dataset with a predictive R-squared value greater than
 the specified \code{threshold}, the algorithm reports the subset that maximizes
 the R-squared. Otherwise, no removal is suggested.
 }
+\examples{
+# Generate 1D data with intentionally clustered (redundant) points
+set.seed(123)
+X_reg <- seq(0, 1, length.out = 20)
+X_cluster <- rnorm(10, mean = 0.5, sd = 0.01) # Redundant points tightly packed around x=0.5
+X <- as.matrix(c(X_reg, X_cluster))
+Y <- sin(2 * pi * X) + rnorm(30, sd = 0.05)
+
+# Generate validation data
+X_val <- as.matrix(seq(0.05, 0.95, length.out = 20))
+Y_val <- sin(2 * pi * X_val) + rnorm(20, sd = 0.05)
+
+# Run GEMSS removal
+res <- gemss_remove(X, Y, X_val, Y_val, n_remove = 10, covtype = "Matern3_2", verbose = TRUE)
+
+# View the indices of the removed points
+print(res$remove)
+print(res$eval_matrix)
+
+# Plot the removal data points (red)
+plot(X, Y, main = "GEMSS Data Removal")
+points(X[res$remove], Y[res$remove], pch = 19, col = 2)
+
+# Compare GP predictions before and after removal
+x_seq <- as.matrix(seq(0, 1, 0.02))
+gp_bf <- hetGP::mleHomGP(X, Y, covtype = "Matern3_2")
+lines(x_seq, predict(gp_bf, x_seq)$mean, col = 1, lty = 2)
+gp_af <- hetGP::mleHomGP(X[-res$remove, , drop = FALSE], Y[-res$remove], covtype = "Matern3_2")
+lines(x_seq, predict(gp_af, x_seq)$mean, col = 3)
+
+}
+\references{
+Chang, M. C., Hua, S. Z., & Wu, C. F. J. (2026). GEMSS-Driven Subsampling
+for Information Extraction and Redundancy Elimination. \emph{Technometrics},
+1–20. \doi{10.1080/00401706.2026.2670596}
+}

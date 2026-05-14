@@ -4,19 +4,19 @@
 \alias{compute_kernel}
 \title{Compute the Correlation Matrix for Specified Kernels}
 \usage{
-compute_kernel(x1, x2, theta, type)
+compute_kernel(X1, X2 = NULL, theta, type)
 }
 \arguments{
+\item{X1}{a matrix of input locations, where each row represents an observation.}
+
+\item{X2}{a matrix of design locations. If \code{NULL}, the correlation
+is calculated between \code{X1} and itself.}
+
 \item{theta}{a \code{p x 1} numeric vector of lengthscale parameters
 corresponding to each dimension.}
 
 \item{type}{a character string specifying the kernel type. Must be one of
 "\code{Gaussian}", "\code{Matern5_2}", or "\code{Matern3_2}".}
-
-\item{X1}{a matrix of input locations, where each row represents an observation.}
-
-\item{X2}{a matrix of design locations. If \code{NULL}, the correlation
-is calculated between \code{X1} and itself.}
 }
 \value{
 a numeric matrix of dimensions \code{nrow(X1) x nrow(X2)}.
@@ -29,7 +29,7 @@ Matern 3/2 correlation structures in a multivariate product form.
 \details{
 For multivariate inputs, the correlation function is defined as the product
 of univariate kernels across all \eqn{p} dimensions:
-\deqn{C(\mathbf{x}, \mathbf{y}, \boldsymbol{\theta}) = \prod_{k=1}^{p} c_k(|x_k - y_k|, \theta_k)}
+\deqn{C(\mathbf{x}, \mathbf{y}, \mathbf{\theta}) = \prod_{k=1}^{p} c_k(|x_k - y_k|, \theta_k)}
 
 The available univariate correlation functions \eqn{c(d)} (where \eqn{d = |x - y|}) are:
 \itemize{

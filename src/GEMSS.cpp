@@ -60,7 +60,7 @@ arma::mat cov_kernel_m52(arma::mat x1, arma::mat x2, arma::vec theta) {
 }
 
 // [[Rcpp::export]]
-arma::mat compute_kernel(arma::mat x1, arma::mat x2, arma::vec theta, std::string type) {
+arma::mat compute_kernel_cpp(arma::mat x1, arma::mat x2, arma::vec theta, std::string type) {
   if (type == "Gaussian") {
     return cov_kernel_gau(x1, x2, theta);
   } else if (type == "Matern3_2") {
@@ -83,11 +83,11 @@ Rcpp::List gp_predict_cpp(arma::mat X_new, arma::mat X, arma::vec Y,
   double beta0 = Parameters["beta0"];
 
   // 1. Build and solve the training system
-  arma::mat K = compute_kernel(X, X, theta, Cov_fun);
+  arma::mat K = compute_kernel_cpp(X, X, theta, Cov_fun);
   K.diag() += g;
 
   // 2. Compute the cross-kernel (transpose it once for better memory access)
-  arma::mat K_star_T = compute_kernel(X_new, X, theta, Cov_fun).t();
+  arma::mat K_star_T = compute_kernel_cpp(X_new, X, theta, Cov_fun).t();
 
   // 3. Solve systems: K * alpha = (Y - beta0) and K * B = K_star_T
   arma::vec alpha = arma::solve(K, Y - beta0, arma::solve_opts::fast);
@@ -167,7 +167,7 @@ Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const ar
   arma::uvec scr_ind = arma::conv_to<arma::uvec>::from(scr_vec);
 
   // initial model
-  arma::mat K_ff = compute_kernel(
+  arma::mat K_ff = compute_kernel_cpp(
     X_sub_all.rows(0, current_size - 1),
     X_sub_all.rows(0, current_size - 1),
     theta, Cov_fun
@@ -182,7 +182,7 @@ Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const ar
 
   arma::mat K_val_f(X_val.n_rows, ns, arma::fill::none);
   K_val_f.cols(0, current_size - 1) =
-    compute_kernel(X_val, X_sub_all.rows(0, current_size - 1), theta, Cov_fun);
+    compute_kernel_cpp(X_val, X_sub_all.rows(0, current_size - 1), theta, Cov_fun);
 
   arma::vec mu_val(X_val.n_rows, arma::fill::none);
 
@@ -198,7 +198,7 @@ Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const ar
   std::vector<unsigned char> in_next_scr(N, 0);
 
   while (current_size < ns) {
-    K_sf = compute_kernel(X.rows(scr_ind), X_sub_all.rows(0, current_size - 1), theta, Cov_fun);
+    K_sf = compute_kernel_cpp(X.rows(scr_ind), X_sub_all.rows(0, current_size - 1), theta, Cov_fun);
 
     mu_s = K_sf * alpha;
     mu_s += beta0;
@@ -240,14 +240,14 @@ Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const ar
     X_sub_all.row(current_size) = X.row(best_global_idx);
     Y_sub_c(current_size) =  Y(best_global_idx) - beta0;
 
-    arma::vec k_new = compute_kernel(
+    arma::vec k_new = compute_kernel_cpp(
       X_sub_all.rows(0, current_size - 1),
       X.row(best_global_idx),
       theta, Cov_fun
     ).col(0);
 
     if ((current_size + 1) % 50 == 0) {
-      arma::mat K_ff_direct = compute_kernel(
+      arma::mat K_ff_direct = compute_kernel_cpp(
         X_sub_all.rows(0, current_size),
         X_sub_all.rows(0, current_size),
         theta, Cov_fun
@@ -262,7 +262,7 @@ Rcpp::List GEMSS_cpp_update_sig(const arma::mat& X, const arma::vec& Y, const ar
     alpha = arma::solve(arma::trimatu(U), w);
     sig2 = arma::as_scalar(Y_sub_c.head(current_size + 1).t() * alpha) / double(current_size + 1);
 
-    K_val_f.col(current_size) = compute_kernel(X_val, X.row(best_global_idx), theta, Cov_fun);
+    K_val_f.col(current_size) = compute_kernel_cpp(X_val, X.row(best_global_idx), theta, Cov_fun);
     mu_val = K_val_f.cols(0, current_size) * alpha;
     mu_val += beta0;
 
@@ -320,7 +320,7 @@ Rcpp::List gemss_removal_cpp(arma::mat X, arma::vec Y, const arma::vec& theta, d
   arma::uvec removed_order(n_remove);
   arma::uvec current_indices = arma::regspace<arma::uvec>(0, n - 1);
 
-  arma::mat K = compute_kernel(X, X, theta, Cov_fun);
+  arma::mat K = compute_kernel_cpp(X, X, theta, Cov_fun);
   K.diag() += nugget;
   arma::mat R_inv = arma::inv_sympd(K);
 

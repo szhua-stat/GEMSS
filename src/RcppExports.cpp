@@ -11,9 +11,9 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// compute_kernel
-arma::mat compute_kernel(arma::mat x1, arma::mat x2, arma::vec theta, std::string type);
-RcppExport SEXP _GEMSS_compute_kernel(SEXP x1SEXP, SEXP x2SEXP, SEXP thetaSEXP, SEXP typeSEXP) {
+// compute_kernel_cpp
+arma::mat compute_kernel_cpp(arma::mat x1, arma::mat x2, arma::vec theta, std::string type);
+RcppExport SEXP _GEMSS_compute_kernel_cpp(SEXP x1SEXP, SEXP x2SEXP, SEXP thetaSEXP, SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -21,7 +21,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type x2(x2SEXP);
     Rcpp::traits::input_parameter< arma::vec >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< std::string >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(compute_kernel(x1, x2, theta, type));
+    rcpp_result_gen = Rcpp::wrap(compute_kernel_cpp(x1, x2, theta, type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -85,7 +85,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_GEMSS_compute_kernel", (DL_FUNC) &_GEMSS_compute_kernel, 4},
+    {"_GEMSS_compute_kernel_cpp", (DL_FUNC) &_GEMSS_compute_kernel_cpp, 4},
     {"_GEMSS_gp_predict_cpp", (DL_FUNC) &_GEMSS_gp_predict_cpp, 5},
     {"_GEMSS_GEMSS_cpp_update_sig", (DL_FUNC) &_GEMSS_GEMSS_cpp_update_sig, 14},
     {"_GEMSS_gemss_removal_cpp", (DL_FUNC) &_GEMSS_gemss_removal_cpp, 9},
