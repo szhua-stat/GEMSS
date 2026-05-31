@@ -5,5 +5,6 @@
 ## Installation
 You can install the development version from GitHub:
 ```R
+install.packages('GEMSS')
 # install.packages("remotes")
-remotes::install_github("szhua-stat/GEMSS")
+# remotes::install_github("szhua-stat/GEMSS")
