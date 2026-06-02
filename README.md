@@ -20,4 +20,5 @@ You can install the development version from GitHub using the remotes package:
 
 ## Citation
 If you use GEMSS in your research, please cite the following paper:
+
 Chang, M. C., Hua, S. Z., & Wu, C. F. J. (2026). GEMSS-Driven Subsampling for Information Extraction and Redundancy Elimination. Technometrics, 1–20. https://doi.org/10.1080/00401706.2026.2670596
