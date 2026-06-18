@@ -11,13 +11,15 @@ Description: Implements the GEMSS algorithm for sequential subdata selection
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Imports: 
     Rcpp (>= 1.0.0),
     hetGP,
     twinning
 Suggests: 
-    ContourFunctions
+    ContourFunctions,
+    rpart,
+    locfit
 LinkingTo: 
     Rcpp, 
     RcppArmadillo
+Config/roxygen2/version: 8.0.0

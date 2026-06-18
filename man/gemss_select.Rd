@@ -67,7 +67,7 @@ balance between prediction accuracy and space-filling properties.
 
 The default value for \eqn{c_1} is \eqn{3\delta_2^2 / (2\delta_1^4 + 3\delta_2^2)},
 which is derived by minimizing the variance of the GEMSS criterion. Setting
-\eqn{c_1 = 0} results in a space-filling subdata
+\eqn{c_1 = 0} results in space-filling subdata.
 
 The algorithm initializes with a small random sample of size 2 and
 sequentially adds the point from the candidate set that maximizes \eqn{\mathcal{G}}
@@ -79,6 +79,9 @@ sample of size n_srs, and the n_top points that yielded the highest
 
 All GP hyperparameters except \eqn{\sigma^2} are estimated from an initial
 pilot sample of size \eqn{ns} and remain fixed throughout the selection process.
+
+To extend to non-stationary datasets, one can fit a local method such as a regression tree or
+local polynomial to detrend the response, and apply gemss_select on the residuals (see the 2D example).
 }
 \examples{
 # --- Example 1: 1D Regression ---
@@ -98,32 +101,56 @@ plot(X, Y, col = "grey", main = "Selected Subdata and GP Prediction")
 points(X[res$index, ], Y[res$index], col = "red", pch = 19)
 lines(x.grid, y.pred$mean, col = "red", lwd = 2)
 
-# --- Example 2: 2D Surface (Michalewicz function) ---
+# --- Example 2: 2D non-stationary Surface (Michalewicz function) ---
 \donttest{
-michalewicz <- function(xx) {
-  x1 <- xx[1] * pi; x2 <- xx[2] * pi; m <- 10
-  - (sin(x1) * (sin(x1^2 / pi))^(2 * m) + sin(x2) * (sin(2 * x2^2 / pi))^(2 * m))
-}
+if (requireNamespace("rpart", quietly = TRUE) &&
+    requireNamespace("locfit", quietly = TRUE) &&
+    requireNamespace("ContourFunctions", quietly = TRUE)) {
 
-X2D <- matrix(runif(2000), 1000, 2)
-Y2D <- apply(X2D, 1, michalewicz) + rnorm(nrow(X2D), 0, 0.005)
+  df2D <- data.frame(Y = Y2D, X1 = X2D[, 1], X2 = X2D[, 2])
 
-res2D <- gemss_select(X2D, Y2D, ns = 80, covtype = "Matern5_2")
+  # --- Choose a Detrending Method ---
+  # Option A: Fast Local Smoothing (captures continuous, highly local changes)
+  detrend_model <- locfit::locfit(Y ~ locfit::lp(X1, X2, nn = 0.05, scale = FALSE), data = df2D)
 
-# Visualization using ContourFunctions if available
-if (requireNamespace("ContourFunctions", quietly = TRUE)) {
-  ngrid <- 50 # Reduced grid size for faster example execution
+  # Option B: Regression Tree (captures sharp, non-stationary boundaries)
+  # Uncomment the line below to use rpart instead:
+  # detrend_model <- rpart::rpart(Y ~ X1 + X2, data = df2D)
+
+
+  # --- Extract Residuals & Apply GEMSS ---
+  Y2D_res <- df2D$Y - predict(detrend_model, newdata = df2D)
+  res2D <- gemss_select(X2D, Y2D_res, ns = 80, covtype = "Matern5_2")
+
+  # --- Set up the Visualization Grid ---
+  ngrid <- 50
   gx <- seq(0, 1, len = ngrid)
-  grid <- as.matrix(expand.grid(x1 = gx, x2 = gx))
+  grid <- as.matrix(expand.grid(X1 = gx, X2 = gx))
 
-  # plot the contour of Michalewicz function
+  # Plot the true contour of the Michalewicz function
   y_grid <- apply(grid, 1, michalewicz)
   ContourFunctions::cf_grid(gx, gx, matrix(y_grid, ngrid, ngrid),
-                          bar = TRUE, main = "Michalewicz Function")
+                            bar = TRUE, main = "True Michalewicz Function")
 
-  prep <- gp_predict(grid, X2D[res2D$index, ], Y2D[res2D$index], "Matern5_2", res2D$parameters)
-  ContourFunctions::cf_grid(gx, gx, matrix(prep$mean, ngrid, ngrid),
-                            bar = TRUE, main = "Prediction Using Selected Subdata",
+  # --- Predict on Grid & Combine ---
+  grid_df <- data.frame(X1 = grid[, 1], X2 = grid[, 2])
+
+  # Predict the global trend
+  mean_trend_pred <- predict(detrend_model, newdata = grid_df)
+
+  # Predict GP on residuals using selected subdata
+  gp_res_pred <- gp_predict(grid,
+                            X2D[res2D$index, ],
+                            Y2D_res[res2D$index],
+                            "Matern5_2",
+                            res2D$parameters)
+
+  # Final combined prediction
+  final_pred <- mean_trend_pred + gp_res_pred$mean
+
+  # Plot the final prediction
+  ContourFunctions::cf_grid(gx, gx, matrix(final_pred, ngrid, ngrid),
+                            bar = TRUE, main = "Prediction (Detrended + GP Residuals)",
                             afterplotfunc = function() {
                               points(X2D[res2D$index, ], col = 'blue', pch = 1, cex = 1.5, lwd = 2)
                             })
