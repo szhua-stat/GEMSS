@@ -1,6 +1,6 @@
 Package: GEMSS
 Title: Generalization Error Minimization in SubSampling for Gaussian Processes
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: 
     person("Sheng-Zhan", "Hua", , "szhua@g.ucla.edu", role = c("aut", "cre"))
 Description: Implements the GEMSS algorithm for sequential subdata selection 
@@ -17,8 +17,6 @@ Imports:
     twinning
 Suggests: 
     ContourFunctions,
-    rpart,
-    locfit
 LinkingTo: 
     Rcpp, 
     RcppArmadillo

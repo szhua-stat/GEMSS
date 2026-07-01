@@ -80,8 +80,10 @@ sample of size n_srs, and the n_top points that yielded the highest
 All GP hyperparameters except \eqn{\sigma^2} are estimated from an initial
 pilot sample of size \eqn{ns} and remain fixed throughout the selection process.
 
-To extend to non-stationary datasets, one can fit a local method such as a regression tree or
-local polynomial to detrend the response, and apply gemss_select on the residuals (see the 2D example).
+If the response is non-stationary, one can first use a simpler model
+(such as a first-order linear model or a regression tree) to detrend the
+non-stationary part, and then apply \code{gemss_select} on the residuals.
+See Example 2 below for a demonstration of this two-stage approach.
 }
 \examples{
 # --- Example 1: 1D Regression ---
@@ -101,58 +103,105 @@ plot(X, Y, col = "grey", main = "Selected Subdata and GP Prediction")
 points(X[res$index, ], Y[res$index], col = "red", pch = 19)
 lines(x.grid, y.pred$mean, col = "red", lwd = 2)
 
-# --- Example 2: 2D non-stationary Surface (Michalewicz function) ---
+# --- Example 2: 2D Non-Stationary Surface (Modified Michalewicz Function) ---
+# For highly non-stationary data, directly applying GEMSS can yield suboptimal
+# results. A highly effective strategy is a two-stage approach:
+# 1. Fit a simple, fast global model to detrend the data.
+# 2. Apply GEMSS on the residuals to capture the complex, local variations.
+# This example demonstrates how detrending improves the final prediction accuracy.
 \donttest{
-if (requireNamespace("rpart", quietly = TRUE) &&
-    requireNamespace("locfit", quietly = TRUE) &&
-    requireNamespace("ContourFunctions", quietly = TRUE)) {
+if (requireNamespace("ContourFunctions", quietly = TRUE)) {
+  michalewicz_2d <- function(x) {
+    x1 <- x[1] * pi
+    x2 <- x[2] * pi
+    m <- 10
+    -(sin(x1) * (sin(x1^2 / pi))^(2 * m) + sin(x2) * (sin(2 * x2^2 / pi))^(2 * m)) + (x1 + x2)
+  }
 
+  set.seed(1)
+  # Generate 1,000 data points
+  X2D <- matrix(runif(2000), 1000, 2)
+  Y2D <- apply(X2D, 1, michalewicz_2d) + rnorm(nrow(X2D), 0, 0.005)
   df2D <- data.frame(Y = Y2D, X1 = X2D[, 1], X2 = X2D[, 2])
 
-  # --- Choose a Detrending Method ---
-  # Option A: Fast Local Smoothing (captures continuous, highly local changes)
-  detrend_model <- locfit::locfit(Y ~ locfit::lp(X1, X2, nn = 0.05, scale = FALSE), data = df2D)
+  # --- Fit Models ---
 
-  # Option B: Regression Tree (captures sharp, non-stationary boundaries)
-  # Uncomment the line below to use rpart instead:
-  # detrend_model <- rpart::rpart(Y ~ X1 + X2, data = df2D)
+  # A. Detrend the data using a first-order linear model (global trend)
+  trend_model <- lm(Y ~ X1 + X2, data = df2D)
+  Y2D_resid <- df2D$Y - predict(trend_model, newdata = df2D)
 
+  # Apply GEMSS on Residuals (Two-Stage Method)
+  res_twostage <- GEMSS::gemss_select(X2D, Y2D_resid, ns = 80, covtype = "Matern5_2")
 
-  # --- Extract Residuals & Apply GEMSS ---
-  Y2D_res <- df2D$Y - predict(detrend_model, newdata = df2D)
-  res2D <- gemss_select(X2D, Y2D_res, ns = 80, covtype = "Matern5_2")
+  # B. Apply GEMSS Directly on Response (Direct Method for comparison)
+  res_direct <- GEMSS::gemss_select(X2D, Y2D, ns = 80, covtype = "Matern5_2")
+
 
   # --- Set up the Visualization Grid ---
   ngrid <- 50
   gx <- seq(0, 1, len = ngrid)
-  grid <- as.matrix(expand.grid(X1 = gx, X2 = gx))
+  grid_matrix <- as.matrix(expand.grid(X1 = gx, X2 = gx))
 
-  # Plot the true contour of the Michalewicz function
-  y_grid <- apply(grid, 1, michalewicz)
-  ContourFunctions::cf_grid(gx, gx, matrix(y_grid, ngrid, ngrid),
-                            bar = TRUE, main = "True Michalewicz Function")
+  # Calculate true response and true residuals on the grid
+  true_y_grid <- apply(grid_matrix, 1, michalewicz_2d)
+  resid_grid <- true_y_grid - predict(trend_model, newdata = as.data.frame(grid_matrix))
 
-  # --- Predict on Grid & Combine ---
-  grid_df <- data.frame(X1 = grid[, 1], X2 = grid[, 2])
+  # Plot True Functions
+  # ContourFunctions::cf_grid(gx, gx, matrix(true_y_grid, ngrid, ngrid),
+  #                           bar = TRUE, main = "True Response Function")
+  # ContourFunctions::cf_grid(gx, gx, matrix(resid_grid, ngrid, ngrid),
+  #                           bar = TRUE, main = "Residual Function")
 
-  # Predict the global trend
-  mean_trend_pred <- predict(detrend_model, newdata = grid_df)
 
-  # Predict GP on residuals using selected subdata
-  gp_res_pred <- gp_predict(grid,
-                            X2D[res2D$index, ],
-                            Y2D_res[res2D$index],
-                            "Matern5_2",
-                            res2D$parameters)
+  # --- Predict on the Grid ---
+  # A. Two-Stage Subdata Prediction (Global Trend + GP on Residuals)
+  trend_pred_grid <- predict(trend_model, newdata = as.data.frame(grid_matrix))
+  gp_resid_pred <- GEMSS::gp_predict(grid_matrix,
+                                     X2D[res_twostage$index, ],
+                                     Y2D_resid[res_twostage$index],
+                                     "Matern5_2",
+                                     res_twostage$parameters)
+  pred_twostage_final <- trend_pred_grid + gp_resid_pred$mean
 
-  # Final combined prediction
-  final_pred <- mean_trend_pred + gp_res_pred$mean
+  # B. Direct Subdata Prediction (GP directly on original Y)
+  gp_direct_pred <- GEMSS::gp_predict(grid_matrix,
+                                      X2D[res_direct$index, ],
+                                      Y2D[res_direct$index],
+                                      "Matern5_2",
+                                      res_direct$parameters)
+  pred_direct_final <- gp_direct_pred$mean
 
-  # Plot the final prediction
-  ContourFunctions::cf_grid(gx, gx, matrix(final_pred, ngrid, ngrid),
-                            bar = TRUE, main = "Prediction (Detrended + GP Residuals)",
+
+  # --- Evaluate Prediction Accuracy (Normalized RMSPE) ---
+  rmse_baseline <- mean((mean(Y2D) - true_y_grid)^2)^0.5
+  nrmspe_direct <- mean((pred_direct_final - true_y_grid)^2)^0.5 / rmse_baseline
+  nrmspe_twostage <- mean((pred_twostage_final - true_y_grid)^2)^0.5 / rmse_baseline
+
+  # --- Plot the Final Predictions ---
+  # Plot Direct Method
+  ContourFunctions::cf_grid(gx, gx, matrix(pred_direct_final, ngrid, ngrid), bar = TRUE,
+                            main = paste0("Direct GP Prediction | nRMSPE: ",
+                                          round(nrmspe_direct, 4)),
                             afterplotfunc = function() {
-                              points(X2D[res2D$index, ], col = 'blue', pch = 1, cex = 1.5, lwd = 2)
+                              points(X2D[res_direct$index, ], col = 'blue',
+                                     pch = 1, cex = 1.5, lwd = 2)
+                            })
+
+  # Plot Two-Stage Method: The GP Residual Component
+  # ContourFunctions::cf_grid(gx, gx, matrix(gp_resid_pred$mean, ngrid, ngrid),
+  #                           bar = TRUE, main = "GP Prediction on Residuals Only",
+  #                           afterplotfunc = function() {
+  #                             points(X2D[res_twostage$index, ], col = 'green',
+  #                                    pch = 1, cex = 1.5, lwd = 2)
+  #                           })
+
+  # Plot Two-Stage Method: The Final Combined Prediction
+  ContourFunctions::cf_grid(gx, gx, matrix(pred_twostage_final, ngrid, ngrid), bar = TRUE,
+                            main = paste0("Two-Stage Prediction | nRMSPE: ",
+                                          round(nrmspe_twostage, 4)),
+                            afterplotfunc = function() {
+                              points(X2D[res_twostage$index, ], col = 'green',
+                                     pch = 1, cex = 1.5, lwd = 2)
                             })
 }
 }

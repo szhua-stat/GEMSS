@@ -2,3 +2,4 @@
 ^\.Rproj\.user$
 ^supp_materials$
 ^CRAN-SUBMISSION$
+^\.httr-oauth$
